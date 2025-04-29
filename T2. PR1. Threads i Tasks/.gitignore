@@ -1,0 +1,64 @@
+﻿# Visual Studio.gitignore template  
+# Build results  
+[Dd]ebug/  
+[Rr]elease/  
+x64/  
+x86/  
+[Aa][Rr][Mm]/  
+[Aa][Rr][Mm]64/  
+bld/  
+[Bb]in/  
+[Oo]bj/  
+[Ll]og/  
+[Ll]ogs/  
+
+# User-specific files  
+*.rsuser  
+*.suo  
+*.user  
+*.userosscache  
+*.sln.docstates  
+
+# Mono Auto Generated Files  
+mono_crash.*  
+
+# Windows image file caches  
+Thumbs.db  
+ehthumbs.db  
+
+# Folder config file  
+Desktop.ini  
+
+# Recycle Bin used on file shares  
+$RECYCLE.BIN/  
+
+# VS Code directories  
+.vscode/  
+
+# Local History for Visual Studio  
+.localhistory/  
+
+# SQL Server files  
+*.mdf  
+*.ldf  
+
+# IIS Express  
+/.vs/  
+
+# Visual Studio 2019+  
+.vs/  
+
+# Node.js  
+node_modules/  
+
+# npm debug log  
+npm-debug.log*  
+
+# Yarn  
+.yarn/  
+.yarnrc  
+
+# JetBrains Rider  
+.idea/  
+
+# End of file
