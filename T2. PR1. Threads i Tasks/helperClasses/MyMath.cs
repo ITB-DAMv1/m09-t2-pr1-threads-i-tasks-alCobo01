@@ -1,4 +1,4 @@
-﻿namespace T2_PR1.helperClasses
+﻿namespace T2_PR1.HelperClasses
 {
     public static class MyMath
     {
