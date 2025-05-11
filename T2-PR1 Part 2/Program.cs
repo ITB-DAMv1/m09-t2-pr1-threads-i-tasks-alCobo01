@@ -7,41 +7,20 @@ namespace T2_PR1_Part_2
 {
     public class Program
     {
-        private static readonly int width = 200;
-        private static readonly int height = 100;
-
-        private static int playerPosition = width / 2;
-        private static List<(int x, int y)> asteroids = new List<(int x, int y)>();
-
+        /// Constants for the console window size
+        private static readonly int _width = 200;
+        private static readonly int _height = 100;
         private static CancellationTokenSource cts = new CancellationTokenSource();
 
         public static async Task Main()
         {
-            Console.SetWindowSize(width, height);
-            Console.SetBufferSize(width, height);
+            Console.SetWindowSize(_width, _height);
+            Console.SetBufferSize(_width, _height);
             Console.CursorVisible = false;
 
-            var cancellationToken = cts.Token;
+            AsteroidGame game = new AsteroidGame(cts);
+            await game.Run();
 
         }
-       
-        private async static Task MovePlayer(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                var key = Console.ReadKey(true).Key;
-                if (key == ConsoleKey.Q) token.Canc
-                else if (key == ConsoleKey.RightArrow && playerPosition < width - 1)
-                {
-                    playerPosition++;
-                }
-            }
-            Console.Clear();
-            Console.SetCursorPosition(playerPosition, height - 1);
-            Console.Write("A");
-            await Task.Delay(100, token);
-            
-        }
-
     }
 }
