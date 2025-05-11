@@ -16,16 +16,13 @@ namespace T2_PR1
             Console.WriteLine("The solution prevents deadlocks and starvation (no philosopher waits >15s).");
             Console.WriteLine($"Simulation will run for {SimulationTime/1000} seconds.\n");
             
-            // Initialize chopstick manager
+            // Initialize chopstick manager and guests
             ChopstickManager chopstickManager = new ChopstickManager();
-            
-            // Initialize guests (philosophers)
             Guest[] guests = new Guest[NumGuests];
             Thread[] threads = new Thread[NumGuests];
             
             for (int i = 0; i < NumGuests; i++)
             {
-                // Each guest has chopsticks to their left and right
                 // For guest i, right chopstick is i, left chopstick is (i+1) % NumGuests
                 int rightChopstick = i;
                 int leftChopstick = (i + 1) % NumGuests;
@@ -34,7 +31,7 @@ namespace T2_PR1
                 threads[i] = guests[i].GenerateThread();
             }
             
-            // Start the simulation
+            // Start the simulation timer for stats
             Stopwatch simulationTimer = new Stopwatch();
             simulationTimer.Start();
             
@@ -69,18 +66,18 @@ namespace T2_PR1
             {
                 if (thread.IsAlive)
                 {
-                    thread.Join(1000); // Wait up to 1 second for each thread
+                    thread.Join(1000);
                 }
             }
             
             // Display result
             if (simulationCompleted)
             {
-                Console.WriteLine("\n✅ Simulation completed successfully without deadlocks or starvation!");
+                Console.WriteLine("\n Simulation completed successfully without deadlocks or starvation!");
             }
             else
             {
-                Console.WriteLine("\n❌ Simulation ended early due to starvation (a philosopher waited >15s).");
+                Console.WriteLine("\n Simulation ended early due to starvation (a philosopher waited >15s).");
             }
             
             // Save and display statistics

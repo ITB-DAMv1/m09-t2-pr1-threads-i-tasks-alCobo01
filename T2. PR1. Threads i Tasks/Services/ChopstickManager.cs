@@ -1,4 +1,4 @@
-using T2_PR1.Models;
+﻿using T2_PR1.Models;
 
 namespace T2_PR1.Services
 {
@@ -19,7 +19,7 @@ namespace T2_PR1.Services
         //Methods
         internal bool TryGetChopsticks(int guestId, int leftChopstickId, int rightChopstickId)
         {
-            // To prevent deadlock, we'll always acquire locks in a consistent order (lowest ID first)
+            // To prevent deadlock, we have to acquire the minId chopstick first
             int firstId = Math.Min(leftChopstickId, rightChopstickId);
             int secondId = Math.Max(leftChopstickId, rightChopstickId);
             
