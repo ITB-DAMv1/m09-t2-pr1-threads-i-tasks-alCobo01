@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using T2_PR1.Models;
 
 namespace T2_PR1.Services
@@ -33,6 +33,9 @@ namespace T2_PR1.Services
         
         internal void PrintStats(Guest[] guests)
         {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.White;
+
             Console.WriteLine("\n=== DINING PHILOSOPHERS STATISTICS ===");
             Console.WriteLine("Guest\tMax Hunger Time (ms)\tMeals\tTotal Blocked Time (ms)");
             Console.WriteLine("------------------------------------------------------");

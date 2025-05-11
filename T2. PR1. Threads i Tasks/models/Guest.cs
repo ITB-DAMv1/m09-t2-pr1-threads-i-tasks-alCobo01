@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using T2_PR1.HelperClasses;
 using T2_PR1.Services;
 
@@ -7,16 +7,21 @@ namespace T2_PR1.Models
     internal class Guest
     {
         //Private fields
-        private const int _minThinkingTime = 500;
-        private const int _maxThinkingTime = 2000;
-        private const int _minEatingTime = 500;
-        private const int _maxEatingTime = 1000;
-        private readonly ConsoleColor[] _guestColors = { ConsoleColor.Cyan, ConsoleColor.Yellow, ConsoleColor.Magenta, ConsoleColor.Green, ConsoleColor.Red };
+        private static readonly int _minThinkingTime = 500;
+        private static readonly int _maxThinkingTime = 2000;
+        private static readonly int _minEatingTime = 500;
+        private static readonly int _maxEatingTime = 1000;
+        private static readonly ConsoleColor[] _guestColors = { ConsoleColor.White, ConsoleColor.Yellow, ConsoleColor.Cyan, ConsoleColor.Green, ConsoleColor.Red };
+        
+        private static readonly Stopwatch _hungerStopwatch = new Stopwatch();
+        private static readonly Stopwatch _totalBlockedStopwatch = new Stopwatch();
+        
+        private static readonly object _consoleLock = new object();
+        private static readonly object _statsLock = new object();
+
+
         private readonly ChopstickManager _chopstickManager;
-        private readonly Stopwatch _hungerStopwatch = new Stopwatch();
-        private readonly Stopwatch _totalBlockedStopwatch = new Stopwatch();
-        private readonly object _statsLock = new object();
-        private bool _running = true;
+        
 
         //Properties
         internal int Id { get; }
@@ -25,6 +30,7 @@ namespace T2_PR1.Models
         internal bool IsThinking { get; private set; }
         internal bool IsEating { get; private set; }
         internal bool IsHungry { get; private set; }
+        private bool _isRunning { get; set; } = true;
         internal int MealCount { get; private set; }
         internal long MaxHungerTime { get; private set; }
         internal long TotalBlockedTime { get; private set; }
@@ -51,7 +57,7 @@ namespace T2_PR1.Models
             var thinkingTime = MyMath.NextInt(_minThinkingTime, _maxThinkingTime);
 
             IsThinking = true;
-            PrintColoredMessage("is thinking", ConsoleColor.Blue);
+            PrintColoredMessage("is thinking", ConsoleColor.DarkGreen);
             Thread.Sleep(thinkingTime);
             IsThinking = false;
         }
@@ -75,23 +81,28 @@ namespace T2_PR1.Models
 
         internal void Stop()
         {
-            _running = false;
+            _isRunning = false;
         }
 
         private void PrintColoredMessage(string message, ConsoleColor backgroundColor)
         {
-            ConsoleColor originalForeground = Console.ForegroundColor;
-            ConsoleColor originalBackground = Console.BackgroundColor;
-            
-            Console.ForegroundColor = TextColor;
-            Console.BackgroundColor = backgroundColor;
-            
-            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-            Console.Write($"[{timestamp}] Guest {Id} ");
-            Console.WriteLine(message);
-            
-            Console.ForegroundColor = originalForeground;
-            Console.BackgroundColor = originalBackground;
+            // Use lock to ensure that only one thread can write to the console at a time
+            // To prevent different colors at the same time
+            lock (_consoleLock)
+            {
+                ConsoleColor originalForeground = Console.ForegroundColor;
+                ConsoleColor originalBackground = Console.BackgroundColor;
+                
+                Console.ForegroundColor = ConsoleColor.Black;
+                Console.BackgroundColor = TextColor;
+                
+                string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+                Console.WriteLine($"[{timestamp}] Guest {Id} - {message}");
+                
+                // Ensure we restore the original colors
+                Console.ForegroundColor = originalForeground;
+                Console.BackgroundColor = originalBackground;
+            }
         }
 
         internal Thread GenerateThread()
@@ -100,7 +111,7 @@ namespace T2_PR1.Models
             {
                 _hungerStopwatch.Start();
                 
-                while (_running)
+                while (_isRunning)
                 {
                     // Think (philosopher is not hungry)
                     Think();
@@ -109,10 +120,10 @@ namespace T2_PR1.Models
                     IsHungry = true;
                     _hungerStopwatch.Start();
                     _totalBlockedStopwatch.Start();
-                    PrintColoredMessage("is hungry and waiting for chopsticks", ConsoleColor.Yellow);
+                    PrintColoredMessage("is hungry and waiting for chopsticks", ConsoleColor.DarkBlue);
                     
                     bool hasChopsticks = false;
-                    while (!hasChopsticks && _running)
+                    while (!hasChopsticks && _isRunning)
                     {
                         // Check hunger time - if over 15 seconds, we have starvation
                         if (_hungerStopwatch.ElapsedMilliseconds > 15000)
@@ -140,14 +151,13 @@ namespace T2_PR1.Models
                                 }
                             }
                             
-                            PrintColoredMessage($"picked up chopsticks {LeftChopstickId} and {RightChopstickId}", ConsoleColor.DarkYellow);
+                            PrintColoredMessage($"Picked up chopsticks {LeftChopstickId} and {RightChopstickId}", ConsoleColor.DarkGray);
                             
-                            // Eat
                             Eat();
                             
                             // Release chopsticks
                             _chopstickManager.ReleaseChopsticks(LeftChopstickId, RightChopstickId);
-                            PrintColoredMessage($"released chopsticks {LeftChopstickId} and {RightChopstickId}", ConsoleColor.DarkCyan);
+                            PrintColoredMessage($"released chopsticks {LeftChopstickId} and {RightChopstickId}", ConsoleColor.DarkMagenta);
                         }
                         else
                         {
