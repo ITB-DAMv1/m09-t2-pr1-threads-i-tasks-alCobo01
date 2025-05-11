@@ -1,0 +1,355 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace T2_PR1_Part_2
+{
+    public class Program
+    {
+        // Constants for the game
+        private static int width = 80; // Adjusted for better console visibility
+        private static int height = 20; // Adjusted for better console visibility
+        private static readonly char shipChar = '^';
+        private static readonly char asteroidChar = '*';
+        
+        // Game update frequencies
+        private const int RENDER_FPS = 20; // 20Hz for console repainting
+        private const int GAME_FPS = 50;  // 50Hz for game position calculations
+        private const int RENDER_DELAY_MS = 1000 / RENDER_FPS; // 50ms between renders
+        private const int GAME_DELAY_MS = 1000 / GAME_FPS;     // 20ms between game updates
+        
+        // Game state variables
+        private static int playerX;
+        private static int score = 0;
+        private static int lives = 3;
+        private static DateTime startTime;
+        private static bool gameRunning = true;
+        private static CancellationTokenSource cts = new CancellationTokenSource();
+        private static HashSet<(int x, int y)> asteroids = new HashSet<(int x, int y)>();
+        private static bool renderNeeded = true;
+        
+        public static async Task Main()
+        {
+            Console.Clear();
+            Console.CursorVisible = false;
+            
+            // Set window and buffer size to accommodate game area plus status area
+            int windowHeight = Math.Min(height + 7, Console.LargestWindowHeight);
+            int windowWidth = Math.Min(width, Console.LargestWindowWidth);
+            
+            try
+            {
+                Console.SetWindowSize(windowWidth, windowHeight);
+                Console.SetBufferSize(windowWidth, windowHeight);
+            }
+            catch (Exception)
+            {
+                // Fallback if console doesn't support resizing
+            }
+            
+            DrawBorders();
+            DisplayInstructions();
+            
+            // Initialize player in the middle of the bottom row
+            playerX = width / 2;
+            UpdatePlayer(playerX);
+            
+            startTime = DateTime.Now;
+            
+            // Background process to simulate the evaluation program
+            Task backgroundProcess = SimulateBackgroundProcess(cts.Token);
+            
+            // Start game tasks
+            Task inputTask = HandleInputAsync(cts.Token);
+            Task gameUpdateTask = GameUpdateAsync(cts.Token);   // Updates game state at 50Hz
+            Task renderTask = RenderLoopAsync(cts.Token);     // Renders at 20Hz
+            
+            // Wait for game to end either by player quitting or background process completing
+            await Task.WhenAny(inputTask, backgroundProcess);
+            
+            // Cleanup and exit
+            gameRunning = false;
+            cts.Cancel();
+            
+            try
+            {
+                await Task.WhenAll(inputTask, gameUpdateTask, renderTask);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation occurs
+            }
+            
+            DisplayGameResults();
+            
+            Console.CursorVisible = true;
+            Console.SetCursorPosition(0, height + 4);
+        }
+        
+        private static void DrawBorders()
+        {
+            lock (Console.Out)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                
+                // Draw top border
+                Console.SetCursorPosition(0, 0);
+                Console.Write(new string('-', width));
+                
+                // Draw side borders
+                for (int y = 1; y < height; y++)
+                {
+                    Console.SetCursorPosition(0, y);
+                    Console.Write("|");
+                    Console.SetCursorPosition(width - 1, y);
+                    Console.Write("|");
+                }
+                
+                // Draw bottom border
+                Console.SetCursorPosition(0, height);
+                Console.Write(new string('-', width));
+                
+                // Draw a separator between game area and status area
+                Console.SetCursorPosition(0, height + 3);
+                Console.Write(new string('-', width));
+            }
+        }
+        
+        private static void DisplayInstructions()
+        {
+            lock (Console.Out)
+            {
+                Console.SetCursorPosition(2, height + 1);
+                Console.Write("Controls: 'A' left, 'D' right, 'Q' quit");
+                Console.SetCursorPosition(2, height + 2);
+                Console.Write($"Lives: {lives} | Score: {score}");
+            }
+        }
+        
+        private static void UpdateGameInfo()
+        {
+            lock (Console.Out)
+            {
+                // Clear the entire status line first
+                Console.SetCursorPosition(0, height + 2);
+                Console.Write(new string(' ', width));
+                
+                // Then write the updated info
+                Console.SetCursorPosition(2, height + 2);
+                Console.Write($"Lives: {lives} | Score: {score}");
+            }
+        }
+        
+        private static void UpdatePlayer(int x)
+        {
+            // Update player position
+            playerX = x;
+            renderNeeded = true;
+        }
+        
+        private static void DisplayGameResults()
+        {
+            TimeSpan gameTime = DateTime.Now - startTime;
+            
+            Console.Clear();
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine("Game Over!");
+            Console.WriteLine("-----------");
+            Console.WriteLine($"Asteroids dodged: {score}");
+            Console.WriteLine($"Game duration: {gameTime.Minutes}m {gameTime.Seconds}s");
+            Console.WriteLine($"Lives used: {3 - lives}");
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey(true);
+        }
+        
+        private static async Task HandleInputAsync(CancellationToken token)
+        {
+            while (gameRunning && !token.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(true).Key;
+                    
+                    switch (key)
+                    {
+                        case ConsoleKey.A when playerX > 1: // Left movement
+                            playerX--;
+                            renderNeeded = true;
+                            break;
+                        case ConsoleKey.D when playerX < width - 2: // Right movement
+                            playerX++;
+                            renderNeeded = true;
+                            break;
+                        case ConsoleKey.Q: // Quit
+                            gameRunning = false;
+                            return;
+                    }
+                }
+                
+                await Task.Delay(GAME_DELAY_MS); // Delay based on game update rate
+            }
+        }
+        
+        // Game update loop running at 50Hz (position calculations)
+        private static async Task GameUpdateAsync(CancellationToken token)
+        {
+            Random rnd = new Random();
+            const int FIXED_ASTEROID_SPEED = 300; // Fixed speed for all asteroids
+            const int SPAWN_DELAY = 1000; // Fixed spawn delay of 1 second
+            
+            List<(int x, int y)> activeAsteroids = new List<(int x, int y)>();
+            DateTime lastSpawnTime = DateTime.Now;
+            
+            while (gameRunning && !token.IsCancellationRequested)
+            {
+                int startTime = Environment.TickCount;
+                
+                // Check if it's time to spawn a new asteroid
+                if ((DateTime.Now - lastSpawnTime).TotalMilliseconds >= SPAWN_DELAY)
+                {
+                    // Create new asteroid at a random position at the top
+                    int asteroidX = rnd.Next(1, width - 1);
+                    activeAsteroids.Add((asteroidX, 1));
+                    lastSpawnTime = DateTime.Now;
+                    renderNeeded = true;
+                }
+                
+                // Update asteroid positions (every 300ms)
+                for (int i = activeAsteroids.Count - 1; i >= 0; i--)
+                {
+                    var (x, y) = activeAsteroids[i];
+                    
+                    // Only move asteroids on certain frames to achieve desired speed
+                    if (startTime % FIXED_ASTEROID_SPEED < GAME_DELAY_MS)
+                    {
+                        // Remove from current position
+                        activeAsteroids.RemoveAt(i);
+                        
+                        // Calculate new position
+                        y++;
+                        
+                        // Check if asteroid hit bottom
+                        if (y >= height)
+                        {
+                            score++;
+                            renderNeeded = true;
+                        }
+                        // Check collision with player
+                        else if (y == height - 1 && x == playerX)
+                        {
+                            lives--;
+                            renderNeeded = true;
+                            
+                            if (lives <= 0)
+                            {
+                                gameRunning = false;
+                            }
+                        }
+                        // Move asteroid down
+                        else
+                        {
+                            activeAsteroids.Add((x, y));
+                        }
+                    }
+                    else
+                    {
+                        // Keep asteroid in same position
+                        activeAsteroids[i] = (x, y);
+                    }
+                }
+                
+                // Update the game objects collection for rendering
+                asteroids.Clear();
+                
+                // Add player
+                asteroids.Add((playerX, height - 1));
+                
+                // Add all active asteroids
+                foreach (var asteroid in activeAsteroids)
+                {
+                    asteroids.Add(asteroid);
+                }
+                
+                // Wait for next update cycle, accounting for processing time
+                int processingTime = Environment.TickCount - startTime;
+                int delayTime = Math.Max(1, GAME_DELAY_MS - processingTime);
+                await Task.Delay(delayTime, token);
+            }
+        }
+        
+        // Render loop running at 20Hz (console repainting)
+        private static async Task RenderLoopAsync(CancellationToken token)
+        {
+            while (gameRunning && !token.IsCancellationRequested)
+            {
+                int startTime = Environment.TickCount;
+                
+                if (renderNeeded)
+                {
+                    // Render the game state
+                    RenderGameState();
+                    renderNeeded = false;
+                }
+                
+                // Update status info regardless of renderNeeded flag
+                UpdateGameInfo();
+                
+                // Calculate time spent rendering
+                int renderTime = Environment.TickCount - startTime;
+                
+                // Wait for next render cycle, accounting for rendering time
+                int delayTime = Math.Max(1, RENDER_DELAY_MS - renderTime);
+                await Task.Delay(delayTime, token);
+            }
+        }
+        
+        private static void RenderGameState()
+        {
+            lock (Console.Out)
+            {
+                // Clear game area
+                for (int y = 1; y < height; y++)
+                {
+                    Console.SetCursorPosition(1, y);
+                    Console.Write(new string(' ', width - 2));
+                }
+                
+                // Draw player
+                Console.SetCursorPosition(playerX, height - 1);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(shipChar);
+                
+                // Draw asteroids
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                foreach (var pos in asteroids)
+                {
+                    var (x, y) = pos;
+                    if (y < height && y > 0 && x != playerX)
+                    {
+                        Console.SetCursorPosition(x, y);
+                        Console.Write(asteroidChar);
+                    }
+                }
+                
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+        }
+        
+        private static async Task SimulateBackgroundProcess(CancellationToken token)
+        {
+            // Simulate a background process running for a random duration (30-60 seconds)
+            Random rnd = new Random();
+            int duration = rnd.Next(30000, 60000); // 30-60 seconds
+            
+            try
+            {
+                await Task.Delay(duration, token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation occurs
+            }
+        }
+    }
+}
