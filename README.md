@@ -54,7 +54,7 @@ Per a la segona part, he desenvolupat un joc d'asteroides en consola on el jugad
 
 Per aconseguir que el joc sigui interactiu i fluid, he creat una tasca (`Task`) per a cadascuna de les funcionalitats principals: pintar la pantalla, calcular la lògica del joc i escoltar el teclat. Aquestes tasques s'executen de manera concurrent, compartint estat mitjançant variables protegides per locks quan cal. La lectura de teclat es fa en una tasca dedicada que no bloqueja la resta del joc. La renderització i la lògica del joc s'executen a intervals regulars mitjançant `Task.Delay`, que permet esperar sense bloquejar el fil. Això permet que totes les funcionalitats s'executin alhora, aprofitant tant el paral·lelisme (si el sistema ho permet) com l'asincronia per no bloquejar recursos. Així, el joc respon ràpidament a l'usuari i manté una execució eficient.
 
-## Estructura del projecte (Part 2 - Asteroids)
+## Estructura dels projectes
 ```
 T2. PR1. Threads i Tasks/          # Arrel del projecte
 ├─ T2-PR1.csproj                  # Projecte C#
@@ -69,6 +69,7 @@ T2. PR1. Threads i Tasks/          # Arrel del projecte
 │  └─ StatsManager.cs             # Recollida i exportació de dades a CSV
 └─ HelperClasses/                 # Utilitats auxiliars
    └─ MyMath.cs                   # Generador de nombres aleatoris
+
 T2-PR1 Part 2/                  # Arrel del projecte d'asteroids
 ├─ T2-PR1 Part 2.csproj         # Projecte C#
 ├─ Program.cs                   # Punt d'entrada i coordinació de tasques
