@@ -82,5 +82,3 @@ T2-PR1 Part 2/                  # Arrel del projecte d'asteroids
 - Microsoft. (22 de març de 2023). Paraula clau **async** (C# Reference). Microsoft Learn. Recuperat el 11 de maig de 2025 de [link](https://learn.microsoft.com/es-es/dotnet/csharp/language-reference/keywords/async)
 - Microsoft. (1 de juliol de 2024). Operador **await**. Microsoft Learn. Recuperat el 11 de maig de 2025 de [link](https://learn.microsoft.com/es-es/dotnet/csharp/language-reference/operators/await)
 
-
-
